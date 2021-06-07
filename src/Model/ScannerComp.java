@@ -22,11 +22,29 @@ public class ScannerComp
     static public HashMap<String, String> reservedMap=new HashMap<>();
     static public ArrayList<Token> tokenList = new ArrayList<Token>();
 
-    static States currentState =States.START;
-    static boolean nextState=false;
+
+    static int noOfIden=0;
+    static int noOfReserved=0;
+    static int noOfNum=0;
+    static int noOfComm=0;
+    static int noOfAssign=0;
+    static int noOfSymbols=0;
+    
+    static public States currentState = States.START;
+    static boolean nextState = false;
     
     public ScannerComp(){}
     
+    public static String getState(){
+        return currentState.toString();
+    }
+    public static void setInitial(){
+        currentState=States.START;
+    }
+    
+    
+    //inputs: String inputLine (represents each line coming from textArea)
+    //outputs: adds token to tokenList
     public static void scan (String inputLine )
     {
        //adding white space in the end of each input line
@@ -66,14 +84,14 @@ public class ScannerComp
         {
             charArray.add(c);
         }
+        //[ r , e , a , d ]
 
 
         //iterating over each character inside characterArray
         for(int i=0; i<charArray.size(); i++) {
-
-             
-            String currentChar = charArray.get(i).toString();
             
+            String currentChar = charArray.get(i).toString();
+            System.out.println(currentState.toString());
                 //Checking whether currentState is Start
                 //According to TINY Language's DFA
                 //the initial state is always START
@@ -87,29 +105,37 @@ public class ScannerComp
                     
                     //Incase of whitespace, continue
                     //no need to process
-                    if (currentChar.matches(" ")) {
+                    else if (currentChar.matches(" ")) {
                         currentState = States.START;
                         continue;
                     }
                     
                     //Incase of number, move to numbers state
-                    if (isNum(currentChar)) {
+                    else if (isNum(currentChar)) {
                         currentState = States.INNUM;
                     }
                     //Incase of curly bracket. Comment State
-                    if (currentChar.matches("[{]")) {
+                    else if (currentChar.matches("[{]")) {
                         currentState = States.INCOMMENT;
                     }
                     
                     //Incase of :, Assignment State transition
-                    if (isCol(currentChar)) {
+                    else if (isCol(currentChar)) {
                         currentState = States.INASSIGN;
                     }
                     
                     //Incase of Symbol, didn't have to make a special state for it
                     //since it is always one character
-                    if (isSymbol(currentChar)) {
+                    else if (isSymbol(currentChar)) {
                         currentState=States.DONE;
+                    }
+                    
+                    //Incase there is an unidentifable character
+                    // we will not consider it as a token and break
+                    //this loop.
+                    else{
+                        currentState=States.ERROR;
+                        break;
                     }
 
                 }
@@ -146,8 +172,12 @@ public class ScannerComp
                     
                     //another character like ;
                     //move to OTHER STATE
-                    else{
+                    
+                    else if(strOther(currentChar)){
                         currentState=States.OTHER;
+                    }
+                    else{ 
+                        currentState=States.ERROR;
                     }
                 }
 
@@ -167,8 +197,11 @@ public class ScannerComp
                     }
                     //if there is any other character
                     //move to state other
-                    else{
+                    else if(numOther(currentChar)){
                         currentState = States.OTHER;
+                    }
+                    else{
+                        currentState=States.ERROR;
                     }
                 }
 
@@ -183,8 +216,12 @@ public class ScannerComp
                     
                     //another character, move to other state to identify
                     //its state separately.
-                    else {
+                    
+                    else if(assignOther(currentChar)) {
                         currentState=States.OTHER;
+                    }
+                    else{
+                        currentState=States.ERROR;
                     }
                 }
 
@@ -207,8 +244,7 @@ public class ScannerComp
                 nextState=true;
             }
 
-
-
+                
             if(currentState==States.DONE)
             {
                 //setup the current token then add it to our tokenlist
@@ -332,13 +368,14 @@ public class ScannerComp
                 //but in upper case as saved in reservedMap
                 //I could have used .toUpper() method I guess...
                 tokenList.add(new Token(token,reservedMap.get(token) + "  -- Reserved_Word"));
+                noOfReserved++;
 
             }
             else
             {
                 //add the token as an identifier normally
                 tokenList.add(new Token(token,"IDENTIFIER"));
-
+                noOfIden++;
             }
         }
         
@@ -346,35 +383,35 @@ public class ScannerComp
         else if(token.matches(":="))
         {
             tokenList.add(new Token(token,"ASSIGNMENT"));
+            noOfAssign++;
 
         }
         //in case the token starts with { and ends with }
         else if(isComment(token)){
 
             tokenList.add(new Token(token,"COMMENT"));
-
+            noOfComm++;
         }
         //in case the token is numeric
         else if(isNum(token))
         {
             tokenList.add(new Token(token, "NUMBER"));
+            noOfNum++;
         }
         //in case the token is symbol
         else if(isSymbol(token)) {
             tokenList.add(new Token(token, symbolsMap.get(token)));
-
+            noOfSymbols++;
         }
-        //
-        //else{
-          //  tokenList.add(new Token(token,"OTHER"));
-        //}
+        
+        
 
     }
     
     
     /////////////////////////////////////// HELPING METHODS & REGEX ///////////////////////////////////////
     static boolean isStr(String str)
-    {
+    { 
         //^ starts with
         //$ ends with
         //| or
@@ -404,6 +441,42 @@ public class ScannerComp
     {
         return str.matches("\\d+");
     }
+    
+    
+    ////////////////////////////////////HELPERS FUNCTIONS TO NAVIGATE TO OTHER STATES////////////////////////
+    static boolean strOther(String str)
+    {
+        if(isSymbol(str)||isCol(str)||str.matches("\\{"))
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    static boolean numOther(String str)
+    {
+        if(isSymbol(str)||isCol(str)||str.matches("\\{"))
+        {
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+    
+    static boolean assignOther(String str)
+    {
+        if(isStr(str)||isSymbol(str)||isNum(str)||isCol(str)||str.matches("\\{"))
+        {
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+    
     //used in debugging
     public static void outputScan()
     {
@@ -411,6 +484,33 @@ public class ScannerComp
         {
             System.out.println("TYPE:   "+tokenList.get(i).tokenType+"    Value:    "+tokenList.get(i).tokenValue);
         }
+    }
+    
+    ////////////////////////STATIC VARIABLES ACCESS METHODS/////////////////////////////
+        public static int getNoOfIden() {
+        return noOfIden;
+    }
+
+    public static int getNoOfReserved() {
+        return noOfReserved;
+    }
+
+    public static int getNoOfNum() {
+        return noOfNum;
+    }
+
+    public static int getNoOfComm() {
+        return noOfComm;
+    }
+
+    public static int getNoOfAssign() {
+        return noOfAssign;
+    }
+
+    //variables to detect number of tokens
+    //separately
+    public static int getNoOfSymbols() {
+        return noOfSymbols;
     }
 }
 
@@ -422,5 +522,6 @@ enum States{
     INASSIGN,
     INCOMMENT,
     OTHER,
-    DONE
+    DONE,
+    ERROR
 }
